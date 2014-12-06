@@ -5,30 +5,41 @@
 ; devshawn
 
 (define width 400)
-(define height 300)
-(define blank-scene (empty-scene width height))
-(define speed 10)
-(define world-scale 2)
+(define height 400)
+(define bg (bitmap "test-bg.png"))
+(define blank-scene bg)
+(define speed 5)
+(define world-scale 1)
+(define blockk (square 20 "solid" "green"))
 
 (define-struct player [x y])
+(define-struct block [x y width height image])
 (define-struct keys [left right up down])
-(define-struct world [player keys])
+(define-struct world [player blocks keys]) ; player, list of blocks, keys
 
-(define default-player (make-player 200 150))
+(define default-player (make-player 180 150))
 (define default-keys (make-keys false false false false))
 
 (define (main duration)
-  (big-bang (make-world default-player default-keys)
+  (big-bang (make-world default-player (list (make-block 4 4 1 1 blockk) (make-block 4 5 1 1 blockk) (make-block 4 6 1 1 blockk)) default-keys)
             [to-draw show]
             [on-tick tick 0.02 duration]
             [on-key key-handler]
             [on-release key-release-handler]))
 
 (define (show ws)
-  (place-image (scale world-scale (circle 10 "solid" "red")) (player-x (world-player ws)) (player-y (world-player ws)) (scale world-scale blank-scene)))
+  (show-blocks (world-blocks ws) (place-image (scale world-scale (circle 10 "solid" "red")) (player-x (world-player ws)) (player-y (world-player ws)) (scale world-scale blank-scene))))
+
+(define (show-blocks lob base)
+  (cond
+    [(empty? lob) base]
+    [else (place-image (scale world-scale (block-image (first lob))) 
+                       (- (* (block-x (first lob)) (image-width (block-image (first lob)))) (/ (image-width (block-image (first lob))) 2))
+                       (- (* (block-y (first lob)) (image-height (block-image (first lob)))) (/ (image-height (block-image (first lob))) 2))
+                       (show-blocks (rest lob) base))]))
 
 (define (tick ws)
-  (make-world (move ws) (world-keys ws)))
+  (make-world (move ws) (world-blocks ws) (world-keys ws)))
 
 (define (move ws)
   (cond
@@ -40,18 +51,18 @@
 
 (define (key-handler ws a-key)
   (cond
-    [(key=? "w" a-key) (make-world (world-player ws) (set-key (world-keys ws) "w" true))]
-    [(key=? "a" a-key) (make-world (world-player ws) (set-key (world-keys ws) "a" true))]
-    [(key=? "s" a-key) (make-world (world-player ws) (set-key (world-keys ws) "s" true))]
-    [(key=? "d" a-key) (make-world (world-player ws) (set-key (world-keys ws) "d" true))]
+    [(key=? "w" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "w" true))]
+    [(key=? "a" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "a" true))]
+    [(key=? "s" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "s" true))]
+    [(key=? "d" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "d" true))]
     [else ws]))
 
 (define (key-release-handler ws a-key)
   (cond
-    [(key=? "w" a-key) (make-world (world-player ws) (set-key (world-keys ws) "w" false))]
-    [(key=? "a" a-key) (make-world (world-player ws) (set-key (world-keys ws) "a" false))]
-    [(key=? "s" a-key) (make-world (world-player ws) (set-key (world-keys ws) "s" false))]
-    [(key=? "d" a-key) (make-world (world-player ws) (set-key (world-keys ws) "d" false))]
+    [(key=? "w" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "w" false))]
+    [(key=? "a" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "a" false))]
+    [(key=? "s" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "s" false))]
+    [(key=? "d" a-key) (make-world (world-player ws) (world-blocks ws) (set-key (world-keys ws) "d" false))]
     [else ws]))
 
 ; world-keys, string, boolean -> keys structure
