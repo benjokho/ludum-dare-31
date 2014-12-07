@@ -4,32 +4,37 @@
 ; Ludum Dare 31
 ; devshawn
 
-(define width 400)
-(define height 400)
+(define width 600)
+(define height 600)
 (define bg (bitmap "images/test-bg.png"))
-(define blank-scene bg)
+(define blank-scene (rectangle width height "solid" "black"))
 (define speed 5)
-(define bulletspeed 2)
+(define bulletspeed 3)
 (define bulletlimit 10)
 (define enemyspeed 1)
 (define world-scale 1)
 (define blockk (bitmap "images/wall.png"))
 (define bulletimg (bitmap "images/bullet.png"))
-(define enemyimg (bitmap "images/enemy.png"))
-(define playerimg (bitmap "images/player.png"))
+(define enemyimg (bitmap "images/snowman-front.png"))
+(define playerimg (bitmap "images/player-front.png"))
 (define game-overlay (bitmap "images/overlay.png"))
 (define start-time (current-seconds))
-
 (define (time-elapsed x) (- (current-seconds) start-time))
 
-(define-struct player [x y])
+(define-struct player [x y direction])
 (define-struct block [x y width height image])
 (define-struct bullet [x y rotate])
 (define-struct keys [left right up down pause])
 (define-struct enemy [x y type])
+(define-struct img [left right up down])
 (define-struct world [player bullets enemies blocks keys tick]) ; player, list of bullets, list of enemies, list of blocks, keys, number
 
-(define default-player (make-player 180 150))
+(define imageset-player (make-img (bitmap "images/player-left.png") 
+                               (bitmap "images/player-right.png") 
+                               (bitmap "images/player-back.png") 
+                               (bitmap "images/player-front.png")))
+
+(define default-player (make-player (/ width 2) (/ height 2) "down"))
 (define default-keys (make-keys false false false false false))
 (define default-blocks (list (make-block 4 4 1 1 blockk) (make-block 4 5 1 1 blockk) (make-block 4 6 1 1 blockk)))
 
@@ -51,7 +56,14 @@
     [else base]))
 
 (define (show-player player base)
-  (place-image (scale world-scale playerimg) (player-x player) (player-y player) base))
+  (place-image (scale world-scale (get-player-image player)) (player-x player) (player-y player) base))
+
+(define (get-player-image player)
+  (cond
+    [(string=? (player-direction player) "up") (img-up imageset-player)]
+    [(string=? (player-direction player) "left") (img-left imageset-player)]
+    [(string=? (player-direction player) "right") (img-right imageset-player)]
+    [else (img-down imageset-player)]))
 
 (define (show-bullets lob base)
   (cond
@@ -104,18 +116,18 @@
 
 (define (move ws)
   (cond
-    [(keys-left (world-keys ws)) (move-player ws (make-player (- (player-x (world-player ws)) speed) (player-y (world-player ws))))]
-    [(keys-right (world-keys ws)) (move-player ws (make-player (+ (player-x (world-player ws)) speed) (player-y (world-player ws))))]
-    [(keys-up (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (- (player-y (world-player ws)) speed)))]
-    [(keys-down (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (+ (player-y (world-player ws)) speed)))]
+    [(keys-left (world-keys ws)) (move-player ws (make-player (- (player-x (world-player ws)) speed) (player-y (world-player ws)) "left"))]
+    [(keys-right (world-keys ws)) (move-player ws (make-player (+ (player-x (world-player ws)) speed) (player-y (world-player ws)) "right"))]
+    [(keys-up (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (- (player-y (world-player ws)) speed) "up"))]
+    [(keys-down (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (+ (player-y (world-player ws)) speed) "down"))]
     [else (world-player ws)]))
 
 (define (move-player ws base)
   (cond
-    [(< (player-x (world-player ws)) 0) (make-player width (player-y (world-player ws)))]
-    [(> (player-x (world-player ws)) width) (make-player 0 (player-y (world-player ws)))]
-    [(< (player-y (world-player ws)) 0) (make-player (player-x (world-player ws)) height)]
-    [(> (player-y (world-player ws)) height) (make-player (player-x (world-player ws)) 0)]
+    [(< (player-x (world-player ws)) 0) (make-player width (player-y (world-player ws)) (player-direction (world-player ws)))]
+    [(> (player-x (world-player ws)) width) (make-player 0 (player-y (world-player ws)) (player-direction (world-player ws)))]
+    [(< (player-y (world-player ws)) 0) (make-player (player-x (world-player ws)) height (player-direction (world-player ws)))]
+    [(> (player-y (world-player ws)) height) (make-player (player-x (world-player ws)) 0 (player-direction (world-player ws)))]
     [else base]))
 
 (define (move-enemies ws loe)
