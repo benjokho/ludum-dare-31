@@ -17,6 +17,7 @@
 (define bulletimg (bitmap "images/bullet.png"))
 (define enemyimg (bitmap "images/enemy.png"))
 (define playerimg (bitmap "images/player.png"))
+(define game-overlay (bitmap "images/overlay.png"))
 (define start-time (current-seconds))
 
 (define (time-elapsed x) (- (current-seconds) start-time))
@@ -24,12 +25,12 @@
 (define-struct player [x y])
 (define-struct block [x y width height image])
 (define-struct bullet [x y rotate])
-(define-struct keys [left right up down])
+(define-struct keys [left right up down pause])
 (define-struct enemy [x y type])
 (define-struct world [player bullets enemies blocks keys tick]) ; player, list of bullets, list of enemies, list of blocks, keys, number
 
 (define default-player (make-player 180 150))
-(define default-keys (make-keys false false false false))
+(define default-keys (make-keys false false false false false))
 (define default-blocks (list (make-block 4 4 1 1 blockk) (make-block 4 5 1 1 blockk) (make-block 4 6 1 1 blockk)))
 
 (define (main duration)
@@ -38,7 +39,8 @@
             [on-tick tick 0.02 duration]
             [on-key key-handler]
             [on-mouse mouse-handler]
-            [on-release key-release-handler]))
+            [on-release key-release-handler]
+            [stop-when check-player show-end]))
 
 (define (show ws)
   (show-player (world-player ws) (show-bullets (world-bullets ws) (show-enemies (world-enemies ws) (show-blocks (world-blocks ws) (scale world-scale blank-scene))))))
@@ -69,23 +71,43 @@
                        (- (* (block-x (first lob)) (image-width (block-image (first lob)))) (/ (image-width (block-image (first lob))) 2))
                        (- (* (block-y (first lob)) (image-height (block-image (first lob)))) (/ (image-height (block-image (first lob))) 2))
                        (show-blocks (rest lob) base))]))
+
+(define (show-end ws)
+  (place-image (scale world-scale game-overlay) (/ (image-width game-overlay) 2) (/ (image-height game-overlay) 2) (show ws)))
+
 (define (tick ws)
-  (check-collision (make-world (move ws) (move-bullets (world-bullets ws)) (move-enemies ws (add-enemy ws)) (world-blocks ws) (world-keys ws) (+ (world-tick ws) 1))))
+  (cond
+    [(keys-pause (world-keys ws)) ws]
+    [else (check-collision (make-world 
+                            (move ws) 
+                            (move-bullets (world-bullets ws)) 
+                            (move-enemies ws (add-enemy ws)) 
+                            (world-blocks ws) 
+                            (world-keys ws) 
+                            (+ (world-tick ws) 1)))]))
 
 (define (add-enemy ws)
   (cond
     ;[(> (random 100) 98) (cons (make-enemy (- (random (+ width 30)) 30) -30 1) (world-enemies ws))]
-    [(> (remainder (world-tick ws) 50) 48) (cons (make-enemy (- (random (+ width 30)) 30) -30 1) (world-enemies ws))]
-    [(> (remainder (+ 25 (world-tick ws)) 50) 48) (cons (make-enemy (- (random (+ width 30)) 30) (+ 30 height) 1) (world-enemies ws))]
+    [(> (remainder (world-tick ws) 100) 98) (cons (make-enemy (- (random (+ width 30)) 30) -30 1) (world-enemies ws))]
+    [(and (> (world-tick ws) 1500) (> (remainder (+ 50 (world-tick ws)) 100) 98)) (cons (make-enemy (- (random (+ width 30)) 30) (+ 30 height) 1) (world-enemies ws))]
     [else (world-enemies ws)]))
 
 (define (move ws)
   (cond
-    [(keys-left (world-keys ws)) (make-player (- (player-x (world-player ws)) speed) (player-y (world-player ws)))]
-    [(keys-right (world-keys ws)) (make-player (+ (player-x (world-player ws)) speed) (player-y (world-player ws)))]
-    [(keys-up (world-keys ws)) (make-player (player-x (world-player ws)) (- (player-y (world-player ws)) speed))]
-    [(keys-down (world-keys ws)) (make-player (player-x (world-player ws)) (+ (player-y (world-player ws)) speed))]
+    [(keys-left (world-keys ws)) (move-player ws (make-player (- (player-x (world-player ws)) speed) (player-y (world-player ws))))]
+    [(keys-right (world-keys ws)) (move-player ws (make-player (+ (player-x (world-player ws)) speed) (player-y (world-player ws))))]
+    [(keys-up (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (- (player-y (world-player ws)) speed)))]
+    [(keys-down (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (+ (player-y (world-player ws)) speed)))]
     [else (world-player ws)]))
+
+(define (move-player ws base)
+  (cond
+    [(< (player-x (world-player ws)) 0) (make-player width (player-y (world-player ws)))]
+    [(> (player-x (world-player ws)) width) (make-player 0 (player-y (world-player ws)))]
+    [(< (player-y (world-player ws)) 0) (make-player (player-x (world-player ws)) height)]
+    [(> (player-y (world-player ws)) height) (make-player (player-x (world-player ws)) 0)]
+    [else base]))
 
 (define (move-enemies ws loe)
   (move-enemies-helper ws loe))
@@ -107,7 +129,7 @@
 
 (define (mouse-handler ws x y mevent)
   (cond
-    [(mouse=? "button-down" mevent) (shoot ws x y)]
+    [(and (mouse=? "button-down" mevent) (not (keys-pause (world-keys ws)))) (shoot ws x y)]
     [else ws]))
 
 (define (check-bullet bullet)
@@ -117,6 +139,20 @@
     [(< (bullet-y bullet) 0) true]
     [(> (bullet-y bullet) (+ (* world-scale height) 20)) true]
     [else false]))
+
+(define (check-player ws)
+  (check-player-helper (world-player ws) (world-enemies ws)))
+
+(define (check-player-helper player loe)
+  (cond
+    [(empty? loe) false]
+    [(and (<= (player-x player) (+ (enemy-x (first loe)) (/ (image-width enemyimg) 2)))
+          (>= (player-x player) (- (enemy-x (first loe)) (/ (image-width enemyimg) 2)))
+          (<= (player-y player) (+ (enemy-y (first loe)) (/ (image-height enemyimg) 2)))
+          (>= (player-y player) (- (enemy-y (first loe)) (/ (image-height enemyimg) 2))))
+     true]
+    [else (check-player-helper player (rest loe))]))
+  
 
 ; collision
 
@@ -169,12 +205,16 @@
               (world-tick ws))
       ws))
 
+(define (pause keys)
+ (make-keys (keys-left keys) (keys-right keys) (keys-up keys) (keys-down keys) (not (keys-pause keys))))
+
 (define (key-handler ws a-key)
   (cond
     [(key=? "w" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "w" true) (world-tick ws))]
     [(key=? "a" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "a" true) (world-tick ws))]
     [(key=? "s" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "s" true) (world-tick ws))]
     [(key=? "d" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "d" true) (world-tick ws))]
+    [(key=? "p" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (pause (world-keys ws)) (world-tick ws))]
     [else ws]))
 
 (define (key-release-handler ws a-key)
@@ -188,10 +228,10 @@
 ; world-keys, string, boolean -> keys structure
 (define (set-key lok key state)
   (cond
-    [(string=? key "w") (make-keys (keys-left lok) (keys-right lok) state (keys-down lok))]
-    [(string=? key "a") (make-keys state (keys-right lok) (keys-up lok) (keys-down lok))]
-    [(string=? key "s") (make-keys (keys-left lok) (keys-right lok) (keys-up lok) state)]
-    [(string=? key "d") (make-keys (keys-left lok) state (keys-up lok) (keys-down lok))]))
+    [(string=? key "w") (make-keys (keys-left lok) (keys-right lok) state (keys-down lok) (keys-pause lok))]
+    [(string=? key "a") (make-keys state (keys-right lok) (keys-up lok) (keys-down lok) (keys-pause lok))]
+    [(string=? key "s") (make-keys (keys-left lok) (keys-right lok) (keys-up lok) state (keys-pause lok))]
+    [(string=? key "d") (make-keys (keys-left lok) state (keys-up lok) (keys-down lok) (keys-pause lok))]))
 
   
 
