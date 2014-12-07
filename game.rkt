@@ -43,7 +43,12 @@
             [stop-when check-player show-end]))
 
 (define (show ws)
-  (show-player (world-player ws) (show-bullets (world-bullets ws) (show-enemies (world-enemies ws) (show-blocks (world-blocks ws) (scale world-scale blank-scene))))))
+  (show-paused ws (show-player (world-player ws) (show-bullets (world-bullets ws) (show-enemies (world-enemies ws) (show-blocks (world-blocks ws) (scale world-scale blank-scene)))))))
+
+(define (show-paused ws base)
+  (cond
+    [(keys-pause (world-keys ws)) (place-image (scale world-scale game-overlay) (/ (image-width game-overlay) 2) (/ (image-height game-overlay) 2) base)]
+    [else base]))
 
 (define (show-player player base)
   (place-image (scale world-scale playerimg) (player-x player) (player-y player) base))
@@ -73,7 +78,11 @@
                        (show-blocks (rest lob) base))]))
 
 (define (show-end ws)
-  (place-image (scale world-scale game-overlay) (/ (image-width game-overlay) 2) (/ (image-height game-overlay) 2) (show ws)))
+  (place-image
+   (scale world-scale (survive-text ws))
+   (/ width 2)
+   (- (/ height 2) 12)
+   (place-image (scale world-scale game-overlay) (/ (image-width game-overlay) 2) (/ (image-height game-overlay) 2) (show ws))))
 
 (define (tick ws)
   (cond
@@ -140,6 +149,9 @@
     [(> (bullet-y bullet) (+ (* world-scale height) 20)) true]
     [else false]))
 
+(define (survive-text ws)
+  (text (string-append "You survived " (number->string (time-elapsed 0)) " seconds!") 26 "red"))
+
 (define (check-player ws)
   (check-player-helper (world-player ws) (world-enemies ws)))
 
@@ -153,7 +165,6 @@
      true]
     [else (check-player-helper player (rest loe))]))
   
-
 ; collision
 
 (define (check-collision ws)
@@ -232,7 +243,5 @@
     [(string=? key "a") (make-keys state (keys-right lok) (keys-up lok) (keys-down lok) (keys-pause lok))]
     [(string=? key "s") (make-keys (keys-left lok) (keys-right lok) (keys-up lok) state (keys-pause lok))]
     [(string=? key "d") (make-keys (keys-left lok) state (keys-up lok) (keys-down lok) (keys-pause lok))]))
-
-  
 
 (main 1000000000)
