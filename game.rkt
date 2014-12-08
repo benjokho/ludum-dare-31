@@ -42,6 +42,7 @@
   (big-bang (make-world default-player empty (list (make-enemy 100 100 1)) empty default-keys 0 0 false)
             [to-draw show]
             [on-tick tick 0.02 duration]
+            [name "Snowball Fight - Ludum Dare 31 - by devshawn"]
             [on-key key-handler]
             [on-mouse mouse-handler]
             [on-release key-release-handler]
