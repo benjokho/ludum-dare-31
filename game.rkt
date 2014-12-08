@@ -130,19 +130,11 @@
 
 (define (move ws)
   (cond
-    [(keys-left (world-keys ws)) (move-player ws (make-player (- (player-x (world-player ws)) speed) (player-y (world-player ws)) "left"))]
-    [(keys-right (world-keys ws)) (move-player ws (make-player (+ (player-x (world-player ws)) speed) (player-y (world-player ws)) "right"))]
-    [(keys-up (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (- (player-y (world-player ws)) speed) "up"))]
-    [(keys-down (world-keys ws)) (move-player ws (make-player (player-x (world-player ws)) (+ (player-y (world-player ws)) speed) "down"))]
+    [(and (keys-left (world-keys ws)) (> (player-x (world-player ws)) 0)) (make-player (- (player-x (world-player ws)) speed) (player-y (world-player ws)) "left")]
+    [(and (keys-right (world-keys ws)) (< (player-x (world-player ws)) width)) (make-player (+ (player-x (world-player ws)) speed) (player-y (world-player ws)) "right")]
+    [(and (keys-up (world-keys ws)) (> (player-y (world-player ws)) 0)) (make-player (player-x (world-player ws)) (- (player-y (world-player ws)) speed) "up")]
+    [(and (keys-down (world-keys ws)) (< (player-y (world-player ws)) height)) (make-player (player-x (world-player ws)) (+ (player-y (world-player ws)) speed) "down")]
     [else (world-player ws)]))
-
-(define (move-player ws base)
-  (cond
-    [(< (player-x (world-player ws)) 0) (make-player width (player-y (world-player ws)) (player-direction (world-player ws)))]
-    [(> (player-x (world-player ws)) width) (make-player 0 (player-y (world-player ws)) (player-direction (world-player ws)))]
-    [(< (player-y (world-player ws)) 0) (make-player (player-x (world-player ws)) height (player-direction (world-player ws)))]
-    [(> (player-y (world-player ws)) height) (make-player (player-x (world-player ws)) 0 (player-direction (world-player ws)))]
-    [else base]))
 
 (define (move-enemies ws loe)
   (move-enemies-helper ws loe))
@@ -151,8 +143,8 @@
   (cond
     [(empty? loe) empty]
     [else (cons (make-enemy 
-                 (+ (enemy-x (first loe)) (* enemyspeed (cos (* (/ pi 180) (get-bullet-angle ws (enemy-x (first loe)) (enemy-y (first loe)))))))
-                 (+ (enemy-y (first loe)) (* enemyspeed -1 (sin (* (/ pi 180) (get-bullet-angle ws (enemy-x (first loe)) (enemy-y (first loe)))))))
+                 (+ (enemy-x (first loe)) (* (+ 1 (floor (/ (world-score ws) 10))) (cos (* (/ pi 180) (get-bullet-angle ws (enemy-x (first loe)) (enemy-y (first loe)))))))
+                 (+ (enemy-y (first loe)) (* (+ 1 (floor (/ (world-score ws) 10))) -1 (sin (* (/ pi 180) (get-bullet-angle ws (enemy-x (first loe)) (enemy-y (first loe)))))))
                  (enemy-type (first loe))) 
                 (move-enemies-helper ws (rest loe)))]))
 
@@ -176,15 +168,15 @@
     [else false]))
 
 (define (survive-text ws)
-  (text (string-append "You survived " (number->string (time-elapsed 0)) " seconds!") 26 "black"))
+  (text (string-append "You survived " (number->string (floor (/ (world-tick ws) 50))) " seconds!") 26 "yellow"))
 
 (define (kills-text ws)
-  (text (string-append "You hit " (number->string (world-score ws)) " snowmen!") 26 "black"))
+  (text (string-append "You hit " (number->string (world-score ws)) " snowmen!") 26 "yellow"))
 
 (define (start-text ws)
-  (above (text "Hit snowmen by throwing snowballs" 26 "white")
-         (text "Don't get hit!" 26 "white")
-         (text "Press X to start!" 26 "white")))
+  (above (text "Hit snowmen by throwing snowballs" 26 "yellow")
+         (text "Don't get hit!" 26 "yellow")
+         (text "Press X to start!" 26 "yellow")))
 
 (define (check-player ws)
   (check-player-helper (world-player ws) (world-enemies ws)))
@@ -200,22 +192,6 @@
     [else (check-player-helper player (rest loe))]))
 
 ; collision
-
-(define (count-points lob loe)
-  (cond
-    [(empty? loe) lob]
-    [else (count-points-helper (first loe) (count-points lob (rest loe)))]))
-
-(define (count-points-helper enemy lob)
-  (cond
-    [(empty? lob) empty]
-    [(and (>= (bullet-x (first lob)) (- (enemy-x enemy) (/ (image-width enemyimg) 2)))
-          (<= (bullet-x (first lob)) (+ (enemy-x enemy) (/ (image-width enemyimg) 2)))
-          (>= (bullet-y (first lob)) (- (enemy-y enemy) (/ (image-height enemyimg) 2)))
-          (<= (bullet-y (first lob)) (+ (enemy-y enemy) (/ (image-height enemyimg) 2))))
-     (cons (first lob) (count-points-helper enemy (rest lob)))]
-    [else (count-points-helper enemy (rest lob))]))
-
 (define (check-collision ws)
   (make-world (world-player ws) 
               (collision-bullets (world-bullets ws) (world-enemies ws)) 
@@ -283,7 +259,7 @@
     [(key=? "a" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "a" true) (world-tick ws) (world-score ws) (world-started ws))]
     [(key=? "s" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "s" true) (world-tick ws) (world-score ws) (world-started ws))]
     [(key=? "d" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "d" true) (world-tick ws) (world-score ws) (world-started ws))]
-    [(key=? "p" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (pause (world-keys ws)) (world-tick ws) (world-score ws) (world-started ws))]
+    [(and (key=? "p" a-key) (world-started ws)) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (pause (world-keys ws)) (world-tick ws) (world-score ws) (world-started ws))]
     [(key=? "x" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (world-keys ws) (world-tick ws) (world-score ws) true)]
     [else ws]))
 
