@@ -48,7 +48,14 @@
             [stop-when check-player show-end]))
 
 (define (show ws)
-  (show-paused ws (show-player (world-player ws) (show-bullets (world-bullets ws) (show-enemies (world-enemies ws) (show-blocks (world-blocks ws) (scale world-scale blank-scene)))))))
+  (show-start ws (show-paused ws (show-player (world-player ws) (show-bullets (world-bullets ws) (show-enemies (world-enemies ws) (show-blocks (world-blocks ws) (scale world-scale blank-scene))))))))
+
+(define (show-start ws base)
+  (cond
+    [(not (world-started ws))
+     (place-image (scale world-scale (start-text ws)) (/ width 2) (/ height 2)
+     (place-image (scale world-scale game-overlay) (/ (image-width game-overlay) 2) (/ (image-height game-overlay) 2) base))]
+    [else base]))
 
 (define (show-paused ws base)
   (cond
@@ -102,6 +109,7 @@
 
 (define (tick ws)
   (cond
+    [(not (world-started ws)) ws]
     [(keys-pause (world-keys ws)) ws]
     [else (check-collision (make-world 
                             (move ws) 
@@ -156,7 +164,7 @@
 
 (define (mouse-handler ws x y mevent)
   (cond
-    [(and (mouse=? "button-down" mevent) (not (keys-pause (world-keys ws)))) (shoot ws x y)]
+    [(and (mouse=? "button-down" mevent) (world-started ws) (not (keys-pause (world-keys ws)))) (shoot ws x y)]
     [else ws]))
 
 (define (check-bullet bullet)
@@ -172,6 +180,11 @@
 
 (define (kills-text ws)
   (text (string-append "You hit " (number->string (world-score ws)) " snowmen!") 26 "black"))
+
+(define (start-text ws)
+  (above (text "Hit snowmen by throwing snowballs" 26 "white")
+         (text "Don't get hit!" 26 "white")
+         (text "Press X to start!" 26 "white")))
 
 (define (check-player ws)
   (check-player-helper (world-player ws) (world-enemies ws)))
