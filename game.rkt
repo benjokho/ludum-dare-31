@@ -6,8 +6,8 @@
 
 (define width 600)
 (define height 600)
-(define bg (bitmap "images/test-bg.png"))
-(define blank-scene (rectangle width height "solid" "black"))
+(define bg (bitmap "images/bg.png"))
+(define blank-scene bg)
 (define speed 5)
 (define bulletspeed 3)
 (define bulletlimit 10)
@@ -27,19 +27,19 @@
 (define-struct keys [left right up down pause])
 (define-struct enemy [x y type])
 (define-struct img [left right up down])
-(define-struct world [player bullets enemies blocks keys tick]) ; player, list of bullets, list of enemies, list of blocks, keys, number
+(define-struct world [player bullets enemies blocks keys tick score started]) ; player, list of bullets, list of enemies, list of blocks, keys, number, number
 
 (define imageset-player (make-img (bitmap "images/player-left.png") 
-                               (bitmap "images/player-right.png") 
-                               (bitmap "images/player-back.png") 
-                               (bitmap "images/player-front.png")))
+                                  (bitmap "images/player-right.png") 
+                                  (bitmap "images/player-back.png") 
+                                  (bitmap "images/player-front.png")))
 
 (define default-player (make-player (/ width 2) (/ height 2) "down"))
 (define default-keys (make-keys false false false false false))
 (define default-blocks (list (make-block 4 4 1 1 blockk) (make-block 4 5 1 1 blockk) (make-block 4 6 1 1 blockk)))
 
 (define (main duration)
-  (big-bang (make-world default-player empty (list (make-enemy 100 100 1)) default-blocks default-keys 0)
+  (big-bang (make-world default-player empty (list (make-enemy 100 100 1)) empty default-keys 0 0 false)
             [to-draw show]
             [on-tick tick 0.02 duration]
             [on-key key-handler]
@@ -91,10 +91,14 @@
 
 (define (show-end ws)
   (place-image
-   (scale world-scale (survive-text ws))
+   (scale world-scale (kills-text ws))
    (/ width 2)
-   (- (/ height 2) 12)
-   (place-image (scale world-scale game-overlay) (/ (image-width game-overlay) 2) (/ (image-height game-overlay) 2) (show ws))))
+   (- (/ height 2) 30)
+   (place-image
+    (scale world-scale (survive-text ws))
+    (/ width 2)
+    (+ (/ height 2) 20)
+    (place-image (scale world-scale game-overlay) (/ (image-width game-overlay) 2) (/ (image-height game-overlay) 2) (show ws)))))
 
 (define (tick ws)
   (cond
@@ -105,7 +109,9 @@
                             (move-enemies ws (add-enemy ws)) 
                             (world-blocks ws) 
                             (world-keys ws) 
-                            (+ (world-tick ws) 1)))]))
+                            (+ (world-tick ws) 1)
+                            (world-score ws)
+                            (world-started ws)))]))
 
 (define (add-enemy ws)
   (cond
@@ -162,7 +168,10 @@
     [else false]))
 
 (define (survive-text ws)
-  (text (string-append "You survived " (number->string (time-elapsed 0)) " seconds!") 26 "red"))
+  (text (string-append "You survived " (number->string (time-elapsed 0)) " seconds!") 26 "black"))
+
+(define (kills-text ws)
+  (text (string-append "You hit " (number->string (world-score ws)) " snowmen!") 26 "black"))
 
 (define (check-player ws)
   (check-player-helper (world-player ws) (world-enemies ws)))
@@ -176,11 +185,33 @@
           (>= (player-y player) (- (enemy-y (first loe)) (/ (image-height enemyimg) 2))))
      true]
     [else (check-player-helper player (rest loe))]))
-  
+
 ; collision
 
+(define (count-points lob loe)
+  (cond
+    [(empty? loe) lob]
+    [else (count-points-helper (first loe) (count-points lob (rest loe)))]))
+
+(define (count-points-helper enemy lob)
+  (cond
+    [(empty? lob) empty]
+    [(and (>= (bullet-x (first lob)) (- (enemy-x enemy) (/ (image-width enemyimg) 2)))
+          (<= (bullet-x (first lob)) (+ (enemy-x enemy) (/ (image-width enemyimg) 2)))
+          (>= (bullet-y (first lob)) (- (enemy-y enemy) (/ (image-height enemyimg) 2)))
+          (<= (bullet-y (first lob)) (+ (enemy-y enemy) (/ (image-height enemyimg) 2))))
+     (cons (first lob) (count-points-helper enemy (rest lob)))]
+    [else (count-points-helper enemy (rest lob))]))
+
 (define (check-collision ws)
-  (make-world (world-player ws) (collision-bullets (world-bullets ws) (world-enemies ws)) (collision-enemies (world-bullets ws) (world-enemies ws)) (world-blocks ws) (world-keys ws) (world-tick ws)))
+  (make-world (world-player ws) 
+              (collision-bullets (world-bullets ws) (world-enemies ws)) 
+              (collision-enemies (world-bullets ws) (world-enemies ws)) 
+              (world-blocks ws) 
+              (world-keys ws) 
+              (world-tick ws)
+              (+ (world-score ws) (- (length (world-enemies ws)) (length (collision-enemies (world-bullets ws) (world-enemies ws)))))
+              (world-started ws)))
 
 ; returns list of enemies
 (define (collision-enemies lob loe)
@@ -221,31 +252,34 @@
 (define (shoot ws x y)
   (if (<= (length (world-bullets ws)) bulletlimit) 
       (make-world (world-player ws) 
-              (cons (make-bullet (player-x (world-player ws)) (player-y (world-player ws)) (get-bullet-angle ws x y)) (world-bullets ws))
-              (world-enemies ws)
-              (world-blocks ws)
-              (world-keys ws)
-              (world-tick ws))
+                  (cons (make-bullet (player-x (world-player ws)) (player-y (world-player ws)) (get-bullet-angle ws x y)) (world-bullets ws))
+                  (world-enemies ws)
+                  (world-blocks ws)
+                  (world-keys ws)
+                  (world-tick ws)
+                  (world-score ws)
+                  (world-started ws))
       ws))
 
 (define (pause keys)
- (make-keys (keys-left keys) (keys-right keys) (keys-up keys) (keys-down keys) (not (keys-pause keys))))
+  (make-keys (keys-left keys) (keys-right keys) (keys-up keys) (keys-down keys) (not (keys-pause keys))))
 
 (define (key-handler ws a-key)
   (cond
-    [(key=? "w" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "w" true) (world-tick ws))]
-    [(key=? "a" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "a" true) (world-tick ws))]
-    [(key=? "s" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "s" true) (world-tick ws))]
-    [(key=? "d" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "d" true) (world-tick ws))]
-    [(key=? "p" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (pause (world-keys ws)) (world-tick ws))]
+    [(key=? "w" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "w" true) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "a" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "a" true) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "s" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "s" true) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "d" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "d" true) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "p" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (pause (world-keys ws)) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "x" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (world-keys ws) (world-tick ws) (world-score ws) true)]
     [else ws]))
 
 (define (key-release-handler ws a-key)
   (cond
-    [(key=? "w" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "w" false) (world-tick ws))]
-    [(key=? "a" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "a" false) (world-tick ws))]
-    [(key=? "s" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "s" false) (world-tick ws))]
-    [(key=? "d" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "d" false) (world-tick ws))]
+    [(key=? "w" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "w" false) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "a" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "a" false) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "s" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "s" false) (world-tick ws) (world-score ws) (world-started ws))]
+    [(key=? "d" a-key) (make-world (world-player ws) (world-bullets ws) (world-enemies ws) (world-blocks ws) (set-key (world-keys ws) "d" false) (world-tick ws) (world-score ws) (world-started ws))]
     [else ws]))
 
 ; world-keys, string, boolean -> keys structure
