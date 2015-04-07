@@ -15,8 +15,8 @@
 (define world-scale 1)
 (define blockk (bitmap "images/wall.png"))
 (define bulletimg (bitmap "images/bullet.png"))
-(define enemyimg (bitmap "images/snowman-front.png"))
-(define playerimg (bitmap "images/player-front.png"))
+(define enemyimg (bitmap "images/player-front.png"))
+(define playerimg (bitmap "images/snowman-front.png"))
 (define game-overlay (bitmap "images/overlay.png"))
 (define start-time (current-seconds))
 (define (time-elapsed x) (- (current-seconds) start-time))
@@ -29,10 +29,13 @@
 (define-struct img [left right up down])
 (define-struct world [player bullets enemies blocks keys tick score started]) ; player, list of bullets, list of enemies, list of blocks, keys, number, number
 
-(define imageset-player (make-img (bitmap "images/player-left.png") 
-                                  (bitmap "images/player-right.png") 
-                                  (bitmap "images/player-back.png") 
-                                  (bitmap "images/player-front.png")))
+(define imageset-player (make-img (bitmap "images/snowman-left.png") 
+                                  ))
+
+(define imageset-enemy (make-img (bitmap "images/snowman-left.png") 
+                                  (bitmap "images/snowman-right.png") 
+                                  (bitmap "images/snowman-back.png") 
+                                  (bitmap "images/snowman-front.png")))
 
 (define default-player (make-player (/ width 2) (/ height 2) "down"))
 (define default-keys (make-keys false false false false false))

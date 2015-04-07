@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style type="text/css">
+		canvas {
+			border: 1px solid black;
+		}
+	</style>
+    <script src="http://code.createjs.com/easeljs-0.7.0.min.js"></script>
+    <script>
+    	var GRAVITY = 1;
+    	var velX = 5;
+    	var velY = 5;
+    	var JUMP_HEIGHT = GRAVITY * 20;
+    	var SCROLL_SPEED = 10;
+    	var stage;
+    	var DIAMETER = 50;
+
+        function init() {
+            stage = new createjs.Stage("demoCanvas");
+
+			var circle = new createjs.Shape();
+			circle.graphics.beginFill("blue").drawCircle(0, 0, DIAMETER);
+			circle.x = 320;
+			circle.y = 240;
+			stage.addChild(circle);
+
+			document.onkeydown = keyPressed;
+			createjs.Ticker.setFPS(30);
+			createjs.Ticker.addEventListener("tick", handleTick);
+
+	        function handleTick(event) {
+
+
+	        	velY -= GRAVITY;
+	        	circle.y -= velY;
+	        	circle.x += velX;
+
+	        	if (circle.x + DIAMETER > 640) {
+	        		velX *= -1;
+	        		circle.x = 640 - DIAMETER;
+	        	}
+	        	else if (circle.x - DIAMETER < 0) {
+	        		velX *= -1;
+	        		circle.x = DIAMETER;
+	        	}
+		        else if (circle.y + DIAMETER > 480) {
+		        	console.log("new LINE!");
+		        	console.log("x: "+ circle.x);
+		        	console.log("y: "+ circle.y);
+	        		velY *= -1;
+	        		circle.y = 480 - DIAMETER;
+	        	}
+	        	else if (circle.y - DIAMETER < 0) {
+		        	console.log("new LINE!");
+		        	console.log("x: "+ circle.x);
+		        	console.log("y: "+ circle.y);
+	        		velY *= -1;
+	        		circle.y = DIAMETER;
+	        	}
+				stage.update();
+			}
+
+			function keyPressed(event) {
+				velY += JUMP_HEIGHT;
+				velX *= -1;
+			}
+        }
+    </script>
+</head>
+<body onload="init();">
+    <canvas id="demoCanvas" width="640" height="480">
+        alternate content
+    </canvas>
+    <h1>WASD to move></h1>
+    <h1>Click to shoot</h1>
+</body>
+</html>
